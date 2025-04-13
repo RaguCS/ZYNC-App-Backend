@@ -6,15 +6,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "RefreshTokens")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "RefreshTokens")
 public class Token {
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)
         @Column(name = "tokId")
         Long id;
+
         @Column(unique = true, nullable = false)
         String email;
         @Column(unique = true, nullable = false)

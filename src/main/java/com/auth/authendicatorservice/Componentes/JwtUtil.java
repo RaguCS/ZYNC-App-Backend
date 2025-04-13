@@ -29,7 +29,7 @@ public class JwtUtil {
         return Jwts.parser().setSigningKey(SECRET).parseClaimsJws(token).getBody().getSubject();
     }
 
-    public boolean validateToken(String token, UserDetails userDetails) {
+    public boolean validateAccessToken(String token, UserDetails userDetails) {
         return extractEmail(token).equals(userDetails.getUsername());
     }
     public String generateRefreshToken(String email,String role) {

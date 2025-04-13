@@ -15,17 +15,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<?> handleBadCredentials(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
     }
 
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<?> handleDisabledUser(DisabledException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User is disabled. Please verify your account.");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User is disabled. Please verifyAccount your account.");
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<?> handleUserNotFound(UsernameNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
     }
     @ExceptionHandler(UserAlreadyExistException.class)
     public ResponseEntity<?> handleUserAlreadyExist(UserAlreadyExistException ex) {
@@ -40,6 +40,6 @@ public class GlobalExceptionHandler {
     // Optional: fallback
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleOtherExceptions(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Something went wrong");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
     }
 }

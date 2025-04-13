@@ -10,4 +10,5 @@ public interface RefreshTokenRepo extends JpaRepository<Token,Long> {
 //    Boolean existsByEmail(String email);
     Token findByEmail(String email);
     void deleteByrefreshtoken(String refreshtoken);
+    void deleteByEmail(String email);
 }

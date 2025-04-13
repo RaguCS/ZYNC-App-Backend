@@ -4,12 +4,11 @@ import com.auth.authendicatorservice.Componentes.JwtUtil;
 import com.auth.authendicatorservice.DTO.*;
 import com.auth.authendicatorservice.Exceptions.InvalidTokenException;
 import com.auth.authendicatorservice.Exceptions.UserAlreadyExistException;
-import com.auth.authendicatorservice.Model.Token;
 import com.auth.authendicatorservice.Model.User;
 import com.auth.authendicatorservice.Repo.UserRepository;
 import com.auth.authendicatorservice.Security.CustomUserDetails;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,17 +24,15 @@ import java.time.LocalDateTime;
 @Service
 public class AuthedicationService {
         @Autowired
-        TokenGenaratorService tokenGenaratorService;
+        TokenAuthendicationService tokenAuthendicationService;
         @Autowired
         private UserRepository userRepo;
         @Autowired
         private PasswordEncoder passwordEncoder;
         @Autowired
-        private EmailService emailService;
+        private SendOtpService sendOtpService;
         @Autowired
         private AuthenticationManager authManager;
-        @Autowired
-        private RefreshTokenService refreshTokenService;
         @Autowired
         private JwtUtil jwtUtil;
 
@@ -50,17 +47,17 @@ public class AuthedicationService {
             user.setPassword(passwordEncoder.encode(request.password()));
             user.setRole(request.role());
             user.setEnabled(false);
-            OtpGenRespDTO otpGenRespDTO= emailService.sendOtpEmail(user.getEmail()).block();
+            OtpGenRespDTO otpGenRespDTO= sendOtpService.sendOtpInMail(user.getEmail());
             user.setOtp(otpGenRespDTO.otp());
             user.setOtpGeneratedAt(otpGenRespDTO.createdAt());
 //            String accessToken = jwtUtil.generateAccessToken(user.getEmail(),user.getRole());      // Expires in 1 hour
-//            String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(),user.getRole());  // Expires in 7 days
-//            Token token = new Token(user.getEmail(),refreshToken);
-//            refreshTokenService.storeToken(token);
+//            String refreshtoken = jwtUtil.generateRefreshToken(user.getEmail(),user.getRole());  // Expires in 7 days
+//            Token token = new Token(user.getEmail(),refreshtoken);
+//            tokenAuthendicationService.storeToken(token);
             userRepo.save(user);
 
 
-//            return new AuthResponceDTO(accessToken, refreshToken);
+//            return new AuthResponceDTO(accessToken, refreshtoken);
             return new AuthResponceDTO("","");
 
         }
@@ -73,47 +70,75 @@ public class AuthedicationService {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             User user = userDetails.getUser();
             return new AuthResponceDTO(
-                    tokenGenaratorService.generateAccessToken(user),
-                    tokenGenaratorService.generateRefreshToken(user)
+                    tokenAuthendicationService.generateAccessToken(user),
+                    tokenAuthendicationService.generateRefreshToken(user)
             );
         }
-        public ResponseEntity<String > verify(OtpVerifyRequestDTO request) {
-            User user = userRepo.findByEmail(request.email()).orElseThrow();
-            if(user.isEnabled()){
+        public ResponseEntity<String > verifyAccount(OtpVerifyRequestDTO request) {
+              boolean isVerified=verifyOtp(request);
+              User user=userRepo.findByEmail(request.email()).orElseThrow(()->new UsernameNotFoundException("Email not found"));
+            if(!user.isEnabled()&&!isVerified)
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired OTP.");
+            if(user.isEnabled()&&!isVerified){
                 return ResponseEntity.status(HttpStatus.ALREADY_REPORTED).body("User is Already enabled");
             }
-            if (user.getOtp().equals(request.otp()) && user.getOtpGeneratedAt().isAfter(LocalDateTime.now().minusMinutes(5))) {
                 user.setEnabled(true);
                 user.setOtp(null);
                 userRepo.save(user);
                 return ResponseEntity.ok("Account verified. You can now log in.");
+
+        }
+        private boolean verifyOtp(OtpVerifyRequestDTO request) {
+            User user=userRepo.findByEmail(request.email()).orElseThrow(() -> new UsernameNotFoundException("Email not found"));
+            if(user.getOtp()!=null&&user.getOtp().equals(request.otp())&&user.getOtpGeneratedAt().isAfter(LocalDateTime.now().minusMinutes(5))) {
+                return true;
             }
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired OTP.");
+            return false;
         }
 
         public String enableOrDisableUser(UserStateDTO request) {
-            User user=userRepo.findByEmail(request.mail()).orElse(null);
-            if (user==null) {
-                throw new UsernameNotFoundException("User not found");
-            }
+            User user=userRepo.findByEmail(request.mail()).orElseThrow(()->new UsernameNotFoundException("User not found"));
             user.setEnabled(!user.isEnabled());
             userRepo.save(user);
-            return "User State Changed"+(!user.isEnabled());
+            return "User State Changed: "+(user.isEnabled());
         }
-        public String deleteUser(DeleteUserDTO request) throws InvalidTokenException {
+        public String deleteUserRequest(DeleteUserDTO request) throws InvalidTokenException {
             Authentication authentication=authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
             SecurityContextHolder.getContext().setAuthentication(authentication);
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             User user = userDetails.getUser();
-            if (!jwtUtil.isRefreshTokenValid(request.refreshToken()) ||!refreshTokenService.exists(request.refreshToken())) {
+//            System.out.println(request.email());
+//            User user=userRepo.findByEmail(request.email()).orElseThrow(()->new UsernameNotFoundException("Email not found"));
+//            if (!user.getPassword().equals(passwordEncoder.encode(request.password()))) {
+//                throw new BadCredentialsException("Invalid password");
+//            }
+            if (!tokenAuthendicationService.isValidRefreshToken(request.refreshtoken()) ||!tokenAuthendicationService.exists(request.refreshtoken())) {
                 throw new InvalidTokenException("Invalid Refresh Token");
             }
-            userRepo.delete(user);
-            refreshTokenService.delete(request.refreshToken());
-            return "User Deleted Successfully";
+            OtpGenRespDTO otpGenRespDTO= sendOtpService.sendOtpInMail(user.getEmail());
+            user.setOtp(otpGenRespDTO.otp());
+            user.setOtpGeneratedAt(otpGenRespDTO.createdAt());
+            userRepo.save(user);
+            return "Verify Your OTP for Deleting User";
         }
+        @Transactional
+        public String deleteUser(OtpVerifyRequestDTO request){
+            boolean isVerified = verifyOtp(request);
+
+            User user=userRepo.findByEmail(request.email()).orElseThrow(()->new UsernameNotFoundException("Email not found"));
+            if(isVerified){
+                tokenAuthendicationService.deleteByMail(user.getEmail());
+                userRepo.delete(user);
+                return "User Deleted Successfully";
+            }
+            return "Invalid or expired OTP";
+        }
+        public ResponseEntity<AuthResponceDTO> refreshToken(RefreshTokenRequestDTO request) throws InvalidTokenException {
+            return tokenAuthendicationService.refreshToken(request);
+        }
+
 }
 
 
