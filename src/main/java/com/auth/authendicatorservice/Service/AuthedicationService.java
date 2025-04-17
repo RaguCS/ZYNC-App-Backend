@@ -95,6 +95,9 @@ public class AuthedicationService {
             }
             return false;
         }
+        public ResponseEntity<AccessTokenDTO> isValidToken(String token) {
+            return tokenAuthendicationService.isValidAccessToken(token);
+        }
 
         public String enableOrDisableUser(UserStateDTO request) {
             User user=userRepo.findByEmail(request.mail()).orElseThrow(()->new UsernameNotFoundException("User not found"));

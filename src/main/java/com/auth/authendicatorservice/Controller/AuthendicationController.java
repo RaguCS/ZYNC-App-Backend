@@ -32,6 +32,10 @@ public class AuthendicationController {
     public ResponseEntity<String> enableOrDisableUser(@RequestBody UserStateDTO request) {
     return ResponseEntity.status(HttpStatus.OK).body(authedicationService.enableOrDisableUser(request));
     }
+    @GetMapping("/validate-token")
+    public ResponseEntity<AccessTokenDTO> validateToken(@RequestHeader("Authorization") String authHeader) {
+     return authedicationService.isValidToken(authHeader);
+    }
     @PostMapping("/refresh-token")
     public ResponseEntity<AuthResponceDTO> refreshToken(@RequestBody RefreshTokenRequestDTO request) throws InvalidTokenException {
     return authedicationService.refreshToken(request);

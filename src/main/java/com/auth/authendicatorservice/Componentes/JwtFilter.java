@@ -1,6 +1,7 @@
 package com.auth.authendicatorservice.Componentes;
 
 
+import com.auth.authendicatorservice.Exceptions.InvalidTokenException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,7 +27,7 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException,java.io.IOException {
+                                    FilterChain filterChain) throws ServletException,java.io.IOException{
 
         final String authHeader = request.getHeader("Authorization");
 

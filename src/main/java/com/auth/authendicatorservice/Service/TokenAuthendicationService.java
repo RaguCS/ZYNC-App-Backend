@@ -1,6 +1,7 @@
 package com.auth.authendicatorservice.Service;
 
 import com.auth.authendicatorservice.Componentes.JwtUtil;
+import com.auth.authendicatorservice.DTO.AccessTokenDTO;
 import com.auth.authendicatorservice.DTO.AuthResponceDTO;
 import com.auth.authendicatorservice.DTO.RefreshTokenRequestDTO;
 import com.auth.authendicatorservice.Exceptions.InvalidTokenException;
@@ -10,9 +11,13 @@ import com.auth.authendicatorservice.Repo.RefreshTokenRepo;
 import com.auth.authendicatorservice.Repo.UserRepository;
 import com.auth.authendicatorservice.Security.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
+import static org.springframework.http.ResponseEntity.status;
 
 @Service
 public class TokenAuthendicationService {
@@ -22,6 +27,8 @@ public class TokenAuthendicationService {
     private RefreshTokenRepo repository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private UserDetailsServiceImpl userDetailsService;
 
 
     public ResponseEntity<AuthResponceDTO> refreshToken(RefreshTokenRequestDTO request) throws InvalidTokenException {
@@ -31,6 +38,9 @@ public class TokenAuthendicationService {
             throw new InvalidTokenException("Invalid Refresh Token");
         } else {
             String email = jwtUtil.extractEmail(refreshToken);
+            if(email == null) {
+                throw new InvalidTokenException("Invalid Refresh Token");
+            }
             User user=userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("User not found"));
             String newAccessToken = generateAccessToken(user);
             String newRefreshToken =generateRefreshToken(user);
@@ -74,10 +84,23 @@ public class TokenAuthendicationService {
     public boolean isValidRefreshToken(String refreshToken) {
         return jwtUtil.isRefreshTokenValid(refreshToken);
     }
-//    public boolean isValidAccessToken(String accessToken) {
-//        String email = jwtUtil.extractEmail(accessToken);
-//        UserDetailsS
-//        return jwtUtil.validateAccessToken()
-//    }
+
+    public ResponseEntity<AccessTokenDTO> isValidAccessToken(String accessToken) {
+        if (accessToken != null && accessToken.startsWith("Bearer ")) {
+            String token = accessToken.substring(7);
+            String email = jwtUtil.extractEmail(token);
+
+            if (email != null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                boolean isValid = jwtUtil.validateAccessToken(token, userDetails);
+
+                if (isValid) {
+                    return ResponseEntity.ok(new AccessTokenDTO("Valid", email, "Access token is valid."));
+                }
+            }
+        }
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AccessTokenDTO("Invalid",null,"Invalid or expired token."));
+    }
 
 }
