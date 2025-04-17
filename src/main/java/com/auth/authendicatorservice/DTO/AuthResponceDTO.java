@@ -1,4 +1,4 @@
 package com.auth.authendicatorservice.DTO;
 
-public record AuthResponceDTO (String currenttoken,String refreshtoken){
+public record AuthResponceDTO (String accessttoken, String refreshtoken){
 }
